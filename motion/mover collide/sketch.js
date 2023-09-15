@@ -1,4 +1,4 @@
-document.title = 'Basic Collide';
+document.title = 'Sweep and Prune Collide';
 
 let balls = [];
 
@@ -14,7 +14,6 @@ function setup() {
 
 function draw() {
   background(240);
-  text('FPS:' + floor(frameRate()), 20, 20);
 
   let tot = 0;
   for (let i = 0; i < balls.length; i++) {
@@ -28,6 +27,9 @@ function draw() {
     ball.show();
   }
 
-  text('Collion Checks per frame:' + tot, 100, 20);
+  stroke(0);
+  fill(255);
+  text('FPS: ' + floor(frameRate()), 20, 20);
+  text('Collision Checks per frame: ' + tot, 100, 20);
 
 }

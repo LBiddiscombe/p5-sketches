@@ -71,16 +71,16 @@ class Vehicle {
 
   bounceEdges() {
     const { x, y } = this.position;
-    const { radius, velocity } = this;
+    const { radius } = this;
 
     if (x + radius > width || x - radius < 0) {
-      velocity.x *= -1;
-      x += velocity.x;
+      this.velocity.x *= -1;
+      this.position.x = constrain(this.position.x, radius, width - radius);
     }
 
     if (y + radius > height || y - radius < 0) {
-      velocity.y *= -1;
-      y += velocity.y;
+      this.velocity.y *= -1;
+      this.position.y = constrain(this.position.y, radius, height - radius);
     }
   }
 
