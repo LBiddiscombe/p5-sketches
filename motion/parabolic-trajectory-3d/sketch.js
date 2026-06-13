@@ -1,9 +1,12 @@
 document.title = 'Parabolic Trajectory 3D';
 
-let azimuth = 3.14 / 2;
+let azimuth = 0;
 let launchAngle;
 let ballT = 0;
 let playing = false;
+let playSpeed = 0.25;
+let screenOffsetX = 0;
+let screenOffsetY = 0;
 
 const NUM_POINTS = 100;
 
@@ -26,7 +29,7 @@ const MAX_BOUNCES = 10;
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
-  launchAngle = PI / 4;
+  launchAngle = radians(30);
 }
 
 function simulate(angle) {
@@ -64,23 +67,16 @@ function projectPoint(px, py, sc, cx, cy, az, fl) {
   const y3d = yLocal;
   const z3d = xLocal * sin(az);
   const persp = constrain(fl / (fl + z3d), 0.1, 3);
-  return { sx: cx + x3d * persp, sy: cy + y3d * persp, persp };
+  return { sx: cx + x3d * persp + screenOffsetX, sy: cy + y3d * persp + screenOffsetY, persp };
 }
 
 function draw() {
   background(15, 12, 20);
 
-  const cx = width / 2;
+  const marginX = 100;
+  const cx = marginX;
   const cy = height / 2;
-  const maxRadius = min(width, height) * 0.38;
   const focalLength = max(width, height) * 0.8;
-
-  // Reference elements
-  // noFill();
-  // stroke(...PALETTE.reference);
-  // strokeWeight(1);
-  // circle(cx, cy, maxRadius * 2);
-  // line(cx - maxRadius, cy, cx + maxRadius, cy);
 
   // Simulate full trajectory with bounces
   const pts = simulate(launchAngle);
@@ -92,7 +88,7 @@ function draw() {
   const maxGuideX = pts.slice(0, guideLen).reduce((m, p) => max(m, p.x), 0);
   if (maxGuideX < 0.001) return;
 
-  const simScale = maxRadius / maxGuideX;
+  const simScale = (width - marginX * 2) / maxGuideX;
 
   // Launch direction indicator
   const svx = SPEED * cos(launchAngle);
@@ -107,10 +103,12 @@ function draw() {
   // Advance ball if playing
   if (playing) {
     const simDuration = pts.length * DT;
-    ballT += DT / simDuration;
+    ballT += DT / simDuration * playSpeed;
     if (ballT >= 1) {
       ballT = 0;
       playing = false;
+      screenOffsetX = 0;
+      screenOffsetY = 0;
     }
   }
 
@@ -169,16 +167,69 @@ function draw() {
   textFont('monospace');
   text(`azimuth  ${degrees(azimuth).toFixed(0)}\u00b0`, 20, 20);
   text(`launch   ${degrees(launchAngle).toFixed(0)}\u00b0`, 20, 38);
-  text('\u2190 \u2192 rotate  \u2191 \u2193 angle  SPACE kick', 20, height - 28);
+  text('SPACE kick  click ball to re-kick', 20, height - 28);
+}
+
+function mousePressed() {
+  if (!playing) return;
+
+  const marginX = 100;
+  const cx = marginX;
+  const cy = height / 2;
+  const focalLength = max(width, height) * 0.8;
+  const pts = simulate(launchAngle);
+  if (pts.length < 2) return;
+
+  const guideEnd = pts.findIndex(p => p.bounce !== 0);
+  const guideLen = guideEnd > 0 ? guideEnd : pts.length;
+  const maxGuideX = pts.slice(0, guideLen).reduce((m, p) => max(m, p.x), 0);
+  if (maxGuideX < 0.001) return;
+  const simScale = (width - marginX * 2) / maxGuideX;
+
+  const ballIdx = ballT * (pts.length - 1);
+  const bi = floor(ballIdx);
+  const bf = ballIdx - bi;
+  const bj = min(bi + 1, pts.length - 1);
+  const bx = lerp(pts[bi].x, pts[bj].x, bf);
+  const by = lerp(pts[bi].y, pts[bj].y, bf);
+  const ballProj = projectPoint(bx, by, simScale, cx, cy, azimuth, focalLength);
+
+  const exaggScale = constrain(ballProj.persp, 0.15, 2.5) ** 2;
+  const ballRadius = BALL_RADIUS * 2 * exaggScale;
+
+  const d = dist(mouseX, mouseY, ballProj.sx, ballProj.sy);
+  if (d > ballRadius) return;
+
+  const relX = constrain((mouseX - ballProj.sx) / ballRadius, -1, 1);
+  const relY = constrain((mouseY - ballProj.sy) / ballRadius, -1, 1);
+
+  azimuth = radians(90 + 60 * relX);
+
+  if (relY <= 0) {
+    launchAngle = radians(45 + 25 * relY);
+  } else {
+    launchAngle = radians(45 + 30 * relY);
+  }
+
+  screenOffsetX = ballProj.sx - cx;
+  screenOffsetY = ballProj.sy - cy;
+  playSpeed = 1.0;
+  ballT = 0;
+  playing = true;
 }
 
 function keyPressed() {
   const step = 0.04;
-  if (keyCode === LEFT_ARROW) azimuth += step;
-  if (keyCode === RIGHT_ARROW) azimuth -= step;
-  if (keyCode === UP_ARROW) launchAngle = min(launchAngle + step, HALF_PI);
-  if (keyCode === DOWN_ARROW) launchAngle = max(launchAngle - step, 0);
+  // if (keyCode === LEFT_ARROW) azimuth += step;
+  // if (keyCode === RIGHT_ARROW) azimuth -= step;
+  // if (keyCode === UP_ARROW) launchAngle = min(launchAngle + step, HALF_PI);
+  // if (keyCode === DOWN_ARROW) launchAngle = max(launchAngle - step, 0);
   if (key === ' ') {
+    azimuth = 0;
+    launchAngle = radians(30);
+    screenOffsetX = 0;
+    screenOffsetY = 0;
+    playSpeed = 0.25;
     ballT = 0;
     playing = true;
   }
@@ -186,5 +237,7 @@ function keyPressed() {
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
+  screenOffsetX = 0;
+  screenOffsetY = 0;
 }
 
