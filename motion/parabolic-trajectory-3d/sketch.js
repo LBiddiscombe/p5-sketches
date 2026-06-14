@@ -1,13 +1,5 @@
 document.title = 'Parabolic Trajectory 3D';
 
-let azimuth = 0;
-let launchAngle;
-let ballT = 0;
-let playing = false;
-let playSpeed = 0.25;
-let screenOffsetX = 0;
-let screenOffsetY = 0;
-
 const NUM_POINTS = 100;
 
 const PALETTE = {
@@ -27,6 +19,16 @@ const RESTITUTION = 1;
 const BOUNCE_FRICTION = 1;
 const MAX_BOUNCES = 10;
 
+let azimuth = 0;
+let launchAngle;
+let ballT = 0;
+let playing = false;
+let playSpeed = 0.25;
+let screenOffsetX = 0;
+let screenOffsetY = 0;
+let originY = 0;
+let launchSpeed = SPEED;
+
 function setup() {
   createCanvas(windowWidth, windowHeight);
   launchAngle = radians(30);
@@ -34,9 +36,9 @@ function setup() {
 
 function simulate(angle) {
   const pts = [];
-  let x = 0, y = 0;
-  let vx = SPEED * cos(angle);
-  let vy = -SPEED * sin(angle);
+  let x = 0, y = originY;
+  let vx = launchSpeed * cos(angle);
+  let vy = -launchSpeed * sin(angle);
   let bounces = 0;
 
   for (let i = 0; i < 2000; i++) {
@@ -109,6 +111,7 @@ function draw() {
       playing = false;
       screenOffsetX = 0;
       screenOffsetY = 0;
+      originY = 0;
     }
   }
 
@@ -148,11 +151,17 @@ function draw() {
     //circle(proj.sx, proj.sy, size);
   }
 
+  // Ground
+  noStroke();
+  fill(15, 95, 20);
+  rect(0, cy + BALL_RADIUS, width, height / 2);
+
   // Ball
   noStroke();
   fill(255);
-  const exaggScale = constrain(ballProj.persp, 0.15, 2.5) ** 6;
-  circle(ballProj.sx, ballProj.sy, BALL_RADIUS * 2 * exaggScale);
+  const exaggScale = constrain(ballProj.persp, 0.15, 2.5) ** 3;
+  const groundOffset = BALL_RADIUS * (1 - exaggScale);
+  circle(ballProj.sx, ballProj.sy + groundOffset, BALL_RADIUS * 2 * exaggScale);
 
   // Center point
   noStroke();
@@ -166,13 +175,26 @@ function draw() {
   textSize(13);
   textFont('monospace');
   text(`azimuth  ${degrees(azimuth).toFixed(0)}\u00b0`, 20, 20);
-  text(`launch   ${degrees(launchAngle).toFixed(0)}\u00b0`, 20, 38);
-  text('SPACE kick  click ball to re-kick', 20, height - 28);
+  text(`launch   ${degrees(launchAngle).toFixed(0)}\u00b0  speed ${launchSpeed.toFixed(1)}`, 20, 38);
+  text('click ball to kick', 20, height - 28);
 }
 
 function mousePressed() {
-  if (!playing) return;
+  // Click anywhere to start the slow demo
+  if (!playing) {
+    launchAngle = random(radians(15), radians(45));
+    launchSpeed = random(7, 14);
+    azimuth = 0;
+    originY = 0;
+    screenOffsetX = 0;
+    screenOffsetY = 0;
+    playSpeed = 0.25;
+    ballT = 0;
+    playing = true;
+    return;
+  }
 
+  // Mid-flight: click on the ball to re-kick
   const marginX = 100;
   const cx = marginX;
   const cy = height / 2;
@@ -196,12 +218,13 @@ function mousePressed() {
 
   const exaggScale = constrain(ballProj.persp, 0.15, 2.5) ** 2;
   const ballRadius = BALL_RADIUS * 2 * exaggScale;
+  const ballSy = ballProj.sy + BALL_RADIUS * (1 - exaggScale);
 
-  const d = dist(mouseX, mouseY, ballProj.sx, ballProj.sy);
+  const d = dist(mouseX, mouseY, ballProj.sx, ballSy);
   if (d > ballRadius) return;
 
   const relX = constrain((mouseX - ballProj.sx) / ballRadius, -1, 1);
-  const relY = constrain((mouseY - ballProj.sy) / ballRadius, -1, 1);
+  const relY = constrain((mouseY - ballSy) / ballRadius, -1, 1);
 
   azimuth = radians(90 + 60 * relX);
 
@@ -211,33 +234,21 @@ function mousePressed() {
     launchAngle = radians(45 + 30 * relY);
   }
 
+  originY = by;
+  launchSpeed = SPEED;
   screenOffsetX = ballProj.sx - cx;
-  screenOffsetY = ballProj.sy - cy;
   playSpeed = 1.0;
   ballT = 0;
   playing = true;
 }
 
 function keyPressed() {
-  const step = 0.04;
-  // if (keyCode === LEFT_ARROW) azimuth += step;
-  // if (keyCode === RIGHT_ARROW) azimuth -= step;
-  // if (keyCode === UP_ARROW) launchAngle = min(launchAngle + step, HALF_PI);
-  // if (keyCode === DOWN_ARROW) launchAngle = max(launchAngle - step, 0);
-  if (key === ' ') {
-    azimuth = 0;
-    launchAngle = radians(30);
-    screenOffsetX = 0;
-    screenOffsetY = 0;
-    playSpeed = 0.25;
-    ballT = 0;
-    playing = true;
-  }
 }
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   screenOffsetX = 0;
   screenOffsetY = 0;
+  originY = 0;
 }
 
