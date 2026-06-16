@@ -7,6 +7,7 @@ const camera = {
   focalLength: 400,
   height: 3.0, // metres above ground
   horizonY: 100,
+  z: -3,
 };
 
 const goal = {
@@ -21,11 +22,11 @@ function setup() {
 }
 
 function resetBall() {
-  ball = { x: 0, y: 0.11, z: 3, vx: 0, vy: 0, vz: 0, radius: 0.11 };
+  ball = { x: 0, y: 0.11, z: 0, vx: 0, vy: 0, vz: 0, radius: 0.11 };
 }
 
 function draw() {
-  background(135, 206, 235);
+  background(50, 150, 60);
 
   drawPitch();
   updateBall();
@@ -46,11 +47,19 @@ function kickBall() {
   // only kick when near start position
   if (ball.z > 5) return;
 
-  console.log("kick!", mouseX, mouseY, ball.x, ball.y);
+  const ballScreen = project(ball.x, ball.y, ball.z);
+  const dx = mouseX - ballScreen.x;
+  const dy = mouseY - ballScreen.y;
+  const d = Math.hypot(dx, dy);
 
-  ball.vx = random(-10, 10);
-  ball.vy = random(0, 16);
-  ball.vz = random(18, 25);
+  ball.vx = -(dx / d) * map(d, 0, 50, 0, 10, true);
+  ball.vy = (dy / d) * map(d, 0, 50, 0, 16, true);
+
+  console.log("kick!", dx, dy, ball.vx, ball.vy);
+
+  ball.vx = ball.vx; //random(-10, 10);
+  ball.vy = ball.vy; //random(0, 16);
+  ball.vz = 18; //random(18, 25);
 }
 
 function updateBall() {
@@ -96,9 +105,9 @@ function updateBall() {
 }
 
 function project(x, y, z) {
-  z = max(z, 0.1);
+  const dz = max(z - camera.z, 0.1);
 
-  const scale = camera.focalLength / z;
+  const scale = camera.focalLength / dz;
 
   return {
     x: width / 2 + x * scale,
@@ -108,26 +117,30 @@ function project(x, y, z) {
 }
 
 function drawPitch() {
+  // goal line
+  const goalLineLeft = project(-20, 0, goal.z);
+  const goalLineRight = project(20, 0, goal.z);
+  stroke(255, 100);
+  strokeWeight(2);
+  line(goalLineLeft.x, goalLineLeft.y, goalLineRight.x, goalLineRight.y);
+
+  // 6y box
+  const boxLeft = project(-5.5, 0, goal.z);
+  const boxRight = project(5.5, 0, goal.z);
+  const boxTop = project(-5.5, 0, goal.z - 5.5);
+  const boxBottom = project(5.5, 0, goal.z - 5.5);
+  stroke(255, 100);
+  strokeWeight(2);
+  noFill();
+  line(boxLeft.x, boxLeft.y, boxTop.x, boxTop.y);
+  line(boxRight.x, boxRight.y, boxBottom.x, boxBottom.y);
+  line(boxTop.x, boxTop.y, boxBottom.x, boxBottom.y);
+
+  // penalty spot
+  const penaltySpot = project(0, 0, goal.z - 11);
+  fill(255, 100);
   noStroke();
-
-  // grass polygon
-  fill(50, 150, 60);
-
-  beginShape();
-
-  const nearLeft = project(-20, 0, 0);
-  const nearRight = project(20, 0, 0);
-
-  const farLeft = project(-20, 0, 100);
-  const farRight = project(20, 0, 100);
-
-  vertex(nearLeft.x, nearLeft.y);
-  vertex(nearRight.x, nearRight.y);
-  vertex(farRight.x, farRight.y);
-  vertex(farLeft.x, farLeft.y);
-
-  endShape(CLOSE);
-  
+  ellipse(penaltySpot.x, penaltySpot.y, 20, 10);
 }
 
 function drawGoal() {
@@ -137,7 +150,7 @@ function drawGoal() {
   const rightTop = project(goal.width / 2, goal.height, goal.z);
 
   stroke(255);
-  strokeWeight(3);
+  strokeWeight(4);
 
   line(leftBottom.x, leftBottom.y, leftTop.x, leftTop.y);
   line(rightBottom.x, rightBottom.y, rightTop.x, rightTop.y);
@@ -152,6 +165,7 @@ function drawGoal() {
   const rightBackTop = project(goal.width / 2, goal.height, goal.z + netDepth);
 
   stroke(255, 100);
+  strokeWeight(1);
 
   line(leftTop.x, leftTop.y, leftBackTop.x, leftBackTop.y);
   line(rightTop.x, rightTop.y, rightBackTop.x, rightBackTop.y);
