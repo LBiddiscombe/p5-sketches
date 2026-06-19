@@ -1,8 +1,6 @@
 let ball;
 let scored = false;
-let goalScoredTime = 0;
 let saved = false;
-let saveTime = 0;
 let outcome = null;
 let outcomeTime = 0;
 let charging = false;
@@ -53,7 +51,6 @@ function setup() {
   document.title = 'Kick Penalty';
   createCanvas(400, 600);
   noSmooth();
-  pixelDensity(1);
   goalie.z = goal.z;
   resetBall();
 }
@@ -61,9 +58,7 @@ function setup() {
 function resetBall() {
   ball = { x: 0, y: 0.11, z: 0, vx: 0, vy: 0, vz: 0, radius: 0.11 };
   scored = false;
-  goalScoredTime = 0;
   saved = false;
-  saveTime = 0;
   outcome = null;
   goalie.diving = false;
   goalie.x = 0;
@@ -82,44 +77,9 @@ function draw() {
   drawGoalie();
   drawBall();
 
-  if (outcome) {
-    push();
-    textSize(72);
-    textAlign(CENTER, CENTER);
-    textStyle(BOLD);
-    fill(255);
-    stroke(0);
-    strokeWeight(6);
-    text(outcome, width / 2, height / 2);
-    pop();
-  }
+  drawOutcome();
 
-  if (charging) {
-    const elapsed = (millis() - chargeStartTime) % POWER_CYCLE_MS;
-    const power = elapsed / POWER_CYCLE_MS;
-
-    const ballScreen = project(ball.x, ball.y, ball.z);
-    const barX = ballScreen.x + 30;
-    const barY = ballScreen.y;
-    const barW = 10;
-    const barH = 40;
-
-    push();
-    noStroke();
-
-    fill(0, 120);
-    rect(barX, barY - barH, barW, barH);
-
-    fill(255, 220, 0);
-    const fillH = barH * power;
-    rect(barX, barY - fillH, barW, fillH);
-
-    noFill();
-    stroke(255, 180);
-    strokeWeight(1);
-    rect(barX, barY - barH, barW, barH);
-    pop();
-  }
+  drawPowerBar();
 }
 
 function mousePressed() {
@@ -171,7 +131,7 @@ function kickBall(power) {
   if (predY < ball.radius) predY = ball.radius;
 
   const decision = random(GOALIE_DECISIONS);
-  const delay = MAX_REACTION_DELAY_MS; //random(0, MAX_REACTION_DELAY_MS);
+  const delay = random(0, MAX_REACTION_DELAY_MS);
   goalie.decision = decision;
   goalie.diving = true;
   goalie.diveStartTime = millis() + delay;
@@ -224,12 +184,10 @@ function updateBall() {
       ball.vz *= -0.4;
       ball.vy *= 0.8;
       saved = true;
-      saveTime = millis();
       outcome = 'Saved!';
       outcomeTime = millis();
     } else if (inFrame) {
       scored = true;
-      goalScoredTime = millis();
       outcome = 'Goal!';
       outcomeTime = millis();
     }
@@ -413,18 +371,57 @@ function drawGoalie() {
   const sw = img.width * cropRatio;
 
   push();
+  translate(feet.x, feet.y);
   if (diving) {
     const elapsed = millis() - goalie.diveStartTime;
     const rotT = elapsed >= 0 ? min(elapsed / 100, 1) : 0;
-    translate(feet.x, feet.y);
     if (abs(goalie.targetX) >= 1.0) {
       translate(0, -lerp(0, sprW / 2, rotT));
       rotate(Math.sign(goalie.targetX) * rotT * PI / 2);
     }
-  } else {
-    translate(feet.x, feet.y);
   }
   imageMode(CORNER);
   image(img, -sprW / 2, -sprH, sprW, sprH, sx, 0, sw, img.height);
+  pop();
+}
+
+function drawOutcome() {
+  if (!outcome) return;
+  push();
+  textSize(72);
+  textAlign(CENTER, CENTER);
+  textStyle(BOLD);
+  fill(255);
+  stroke(0);
+  strokeWeight(6);
+  text(outcome, width / 2, height / 2);
+  pop();
+}
+
+function drawPowerBar() {
+  if (!charging) return;
+  const elapsed = (millis() - chargeStartTime) % POWER_CYCLE_MS;
+  const power = elapsed / POWER_CYCLE_MS;
+
+  const ballScreen = project(ball.x, ball.y, ball.z);
+  const barX = ballScreen.x + 30;
+  const barY = ballScreen.y;
+  const barW = 10;
+  const barH = 40;
+
+  push();
+  noStroke();
+
+  fill(0, 120);
+  rect(barX, barY - barH, barW, barH);
+
+  fill(255, 220, 0);
+  const fillH = barH * power;
+  rect(barX, barY - fillH, barW, fillH);
+
+  noFill();
+  stroke(255, 180);
+  strokeWeight(1);
+  rect(barX, barY - barH, barW, barH);
   pop();
 }
