@@ -3,6 +3,8 @@ let scored = false;
 let goalScoredTime = 0;
 let saved = false;
 let saveTime = 0;
+let outcome = null;
+let outcomeTime = 0;
 let charging = false;
 let chargeStartTime = 0;
 
@@ -21,7 +23,7 @@ const goal = {
   height: 2.44,
 };
 
-const GOALIE_DECISIONS = ['read', 'freeze', 'randcorner'];
+const GOALIE_DECISIONS = ['read', 'read', 'freeze', 'randcorner'];
 const MAX_REACTION_DELAY_MS = 400;
 const KICK_RADIUS = 50;
 const POWER_CYCLE_MS = 600;
@@ -62,6 +64,7 @@ function resetBall() {
   goalScoredTime = 0;
   saved = false;
   saveTime = 0;
+  outcome = null;
   goalie.diving = false;
   goalie.x = 0;
   goalie.y = 0;
@@ -78,6 +81,18 @@ function draw() {
   drawGoal();
   drawGoalie();
   drawBall();
+
+  if (outcome) {
+    push();
+    textSize(72);
+    textAlign(CENTER, CENTER);
+    textStyle(BOLD);
+    fill(255);
+    stroke(0);
+    strokeWeight(6);
+    text(outcome, width / 2, height / 2);
+    pop();
+  }
 
   if (charging) {
     const elapsed = (millis() - chargeStartTime) % POWER_CYCLE_MS;
@@ -146,9 +161,9 @@ function kickBall(power) {
   const dy = mouseY - ballScreen.y;
   const d = Math.hypot(dx, dy) || 1;
 
-  ball.vx = -(dx / d) * map(d, 0, 50, 0, 10, true);
-  ball.vy = (dy / d) * map(d, 0, 50, 0, 16, true);
-  ball.vz = (25 * power) + 5;
+  ball.vx = -(dx / d) * map(d, 0, 50, 0, 16, true);
+  ball.vy = (dy / d) * map(d, 0, 50, 0, 18, true);
+  ball.vz = (20 * power) + 5;
 
   const t = goal.z / ball.vz;
   const predX = ball.vx * t;
@@ -210,9 +225,13 @@ function updateBall() {
       ball.vy *= 0.8;
       saved = true;
       saveTime = millis();
+      outcome = 'Saved!';
+      outcomeTime = millis();
     } else if (inFrame) {
       scored = true;
       goalScoredTime = millis();
+      outcome = 'Goal!';
+      outcomeTime = millis();
     }
   }
 
@@ -220,17 +239,19 @@ function updateBall() {
     ball.z = min(ball.z, goal.z + 2);
     ball.x = constrain(ball.x, -goal.width / 2, goal.width / 2);
     ball.vx *= 0.9;
-
-    if (millis() - goalScoredTime >= 2000) {
-      resetBall();
-    }
   }
 
-  if (saved && millis() - saveTime >= 2000) {
+  // miss detection
+  if (ball.z > goal.z + 3 && !outcome) {
+    outcome = 'Missed!';
+    outcomeTime = millis();
+  }
+
+  if (outcome && millis() - outcomeTime >= 2000) {
     resetBall();
   }
 
-  if (ball.z > 30) {
+  if (!outcome && ball.z > 30) {
     resetBall();
   }
 }
@@ -406,13 +427,4 @@ function drawGoalie() {
   imageMode(CORNER);
   image(img, -sprW / 2, -sprH, sprW, sprH, sx, 0, sw, img.height);
   pop();
-
-  // // collision rect
-  // const b = goalieCollisionBounds();
-  // const tl = project(b.left, b.top, goalie.z);
-  // const br = project(b.right, b.bottom, goalie.z);
-  // noFill();
-  // stroke(255, 0, 0, 150);
-  // strokeWeight(1);
-  // rect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
 }
