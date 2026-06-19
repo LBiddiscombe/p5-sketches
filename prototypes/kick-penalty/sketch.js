@@ -71,14 +71,15 @@ function draw() {
   background(50, 150, 60);
 
   drawPitch();
-  updateBall();
-  updateGoalie();
   drawGoal();
+
+  updateGoalie();
+  updateBall();
+
   drawGoalie();
   drawBall();
 
   drawOutcome();
-
   drawPowerBar();
 }
 
@@ -130,6 +131,10 @@ function kickBall(power) {
   let predY = ball.y + ball.vy * t - 0.5 * gravity * t * t;
   if (predY < ball.radius) predY = ball.radius;
 
+  goalieReact(predX, predY);
+}
+
+function goalieReact(predX, predY) {
   const decision = random(GOALIE_DECISIONS);
   const delay = random(0, MAX_REACTION_DELAY_MS);
   goalie.decision = decision;
