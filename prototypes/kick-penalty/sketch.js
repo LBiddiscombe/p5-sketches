@@ -1,3 +1,9 @@
+const GOALIE_DECISIONS = ['read', 'read', 'freeze', 'randcorner'];
+const MAX_REACTION_DELAY_MS = 400;
+const KICK_RADIUS = 50;
+const POWER_CYCLE_MS = 600;
+
+let goalieStandImg, goalieDiveImg, ballImg;
 let ball;
 let scored = false;
 let saved = false;
@@ -20,13 +26,6 @@ const goal = {
   width: 7.32,
   height: 2.44,
 };
-
-const GOALIE_DECISIONS = ['read', 'read', 'freeze', 'randcorner'];
-const MAX_REACTION_DELAY_MS = 400;
-const KICK_RADIUS = 50;
-const POWER_CYCLE_MS = 600;
-
-let goalieStandImg, goalieDiveImg, ballImg;
 
 const goalie = {
   x: 0,
