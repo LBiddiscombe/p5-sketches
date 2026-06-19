@@ -26,7 +26,7 @@ const MAX_REACTION_DELAY_MS = 400;
 const KICK_RADIUS = 50;
 const POWER_CYCLE_MS = 600;
 
-let goalieStandImg, goalieDiveImg;
+let goalieStandImg, goalieDiveImg, ballImg;
 
 const goalie = {
   x: 0,
@@ -44,6 +44,7 @@ const goalie = {
 function preload() {
   goalieStandImg = loadImage('goalie_stand.png');
   goalieDiveImg = loadImage('goalie_dive.png');
+  ballImg = loadImage('ball.png');
 }
 
 function setup() {
@@ -148,8 +149,6 @@ function kickBall(power) {
   ball.vx = -(dx / d) * map(d, 0, 50, 0, 10, true);
   ball.vy = (dy / d) * map(d, 0, 50, 0, 16, true);
   ball.vz = (25 * power) + 5;
-
-  console.log("kick!", power, dx, dy, ball.vx, ball.vy, ball.vz);
 
   const t = goal.z / ball.vz;
   const predX = ball.vx * t;
@@ -327,12 +326,8 @@ function drawBall() {
   // ball
 
   const p = project(ball.x, ball.y, ball.z);
-
-  fill(255);
-  stroke(0);
-  strokeWeight(1);
-
-  ellipse(p.x, p.y, ball.radius * 2 * p.scale, ball.radius * 2 * p.scale);
+  const dia = ball.radius * 2 * p.scale;
+  image(ballImg, p.x - dia / 2, p.y - dia / 2, dia, dia);
 }
 
 function updateGoalie() {
