@@ -1,5 +1,8 @@
 let ball;
 let scored = false;
+let goalScoredTime = 0;
+let saved = false;
+let saveTime = 0;
 
 const gravity = 30;
 
@@ -18,6 +21,7 @@ const goal = {
 
 const GOALIE_DECISIONS = ['read', 'freeze', 'randcorner'];
 const MAX_REACTION_DELAY_MS = 400;
+const KICK_RADIUS = 50;
 
 let goalieStandImg, goalieDiveImg;
 
@@ -51,6 +55,9 @@ function setup() {
 function resetBall() {
   ball = { x: 0, y: 0.11, z: 0, vx: 0, vy: 0, vz: 0, radius: 0.11 };
   scored = false;
+  goalScoredTime = 0;
+  saved = false;
+  saveTime = 0;
   goalie.diving = false;
   goalie.x = 0;
   goalie.y = 0;
@@ -86,6 +93,8 @@ function kickBall() {
   const dx = mouseX - ballScreen.x;
   const dy = mouseY - ballScreen.y;
   const d = Math.hypot(dx, dy);
+
+  if (d > KICK_RADIUS) return;
 
   ball.vx = -(dx / d) * map(d, 0, 50, 0, 10, true);
   ball.vy = (dy / d) * map(d, 0, 50, 0, 16, true);
@@ -152,8 +161,11 @@ function updateBall() {
       ball.vx *= 0.5;
       ball.vz *= -0.4;
       ball.vy *= 0.8;
+      saved = true;
+      saveTime = millis();
     } else if (inFrame) {
       scored = true;
+      goalScoredTime = millis();
     }
   }
 
@@ -161,9 +173,17 @@ function updateBall() {
     ball.z = min(ball.z, goal.z + 2);
     ball.x = constrain(ball.x, -goal.width / 2, goal.width / 2);
     ball.vx *= 0.9;
+
+    if (millis() - goalScoredTime >= 2000) {
+      resetBall();
+    }
   }
 
-  if (ball.z > 100) {
+  if (saved && millis() - saveTime >= 2000) {
+    resetBall();
+  }
+
+  if (ball.z > 30) {
     resetBall();
   }
 }
