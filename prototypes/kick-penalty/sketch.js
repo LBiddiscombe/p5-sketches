@@ -16,13 +16,41 @@ const goal = {
   height: 2.44,
 };
 
+let goalieStandImg, goalieDiveImg;
+
+const goalie = {
+  x: 0,
+  y: 0,
+  vy: 0,
+  targetX: 0,
+  targetY: 0,
+  height: 1.8,
+  width: 0.8,
+  diving: false,
+  diveStartTime: 0,
+};
+
+function preload() {
+  goalieStandImg = loadImage('goalie_stand.png');
+  goalieDiveImg = loadImage('goalie_dive.png');
+}
+
 function setup() {
+  document.title = 'Kick Penalty';
   createCanvas(400, 600);
+  noSmooth();
+  pixelDensity(1);
+  goalie.z = goal.z;
   resetBall();
 }
 
 function resetBall() {
   ball = { x: 0, y: 0.11, z: 0, vx: 0, vy: 0, vz: 0, radius: 0.11 };
+  scored = false;
+  goalie.diving = false;
+  goalie.x = 0;
+  goalie.y = 0;
+  goalie.vy = 0;
 }
 
 function draw() {
@@ -30,7 +58,9 @@ function draw() {
 
   drawPitch();
   updateBall();
+  updateGoalie();
   drawGoal();
+  drawGoalie();
   drawBall();
 }
 
@@ -57,9 +87,19 @@ function kickBall() {
 
   console.log("kick!", dx, dy, ball.vx, ball.vy);
 
-  ball.vx = ball.vx; //random(-10, 10);
-  ball.vy = ball.vy; //random(0, 16);
-  ball.vz = 18; //random(18, 25);
+  ball.vz = 18;
+
+  // Predict ball position at the goal line so goalie always saves
+  const t = goal.z / ball.vz;
+  const predX = ball.vx * t;
+  let predY = ball.y + ball.vy * t - 0.5 * gravity * t * t;
+  if (predY < ball.radius) predY = ball.radius;
+
+  goalie.targetX = constrain(predX, -goal.width / 2, goal.width / 2);
+  goalie.targetY = constrain(predY, 0, goal.height);
+  goalie.vy = sqrt(2 * gravity * goalie.targetY);
+  goalie.diving = true;
+  goalie.diveStartTime = millis() + 100;
 }
 
 function updateBall() {
@@ -83,12 +123,17 @@ function updateBall() {
   }
 
   // check for goal scored
-  if (ball.z >= goal.z && ball.z <= goal.z + 0.5) {
-    if (
+  if (ball.z >= goal.z && ball.z <= goal.z + 0.5 && !scored) {
+    const inFrame =
       ball.x > -goal.width / 2 &&
       ball.x < goal.width / 2 &&
-      ball.y <= goal.height
-    ) {
+      ball.y <= goal.height;
+
+    if (inFrame && goalieSaveCheck(ball.x, ball.y)) {
+      ball.vx *= 0.5;
+      ball.vz *= -0.4;
+      ball.vy *= 0.8;
+    } else if (inFrame) {
       scored = true;
     }
   }
@@ -201,4 +246,92 @@ function drawBall() {
   strokeWeight(1);
 
   ellipse(p.x, p.y, ball.radius * 2 * p.scale, ball.radius * 2 * p.scale);
+}
+
+function updateGoalie() {
+  if (!goalie.diving) return;
+
+  const now = millis();
+  if (now < goalie.diveStartTime) return;
+
+  const dt = deltaTime / 1000;
+  const elapsed = now - goalie.diveStartTime;
+
+  const t = min(elapsed / 650, 1);
+  goalie.x = lerp(0, goalie.targetX, t);
+
+  goalie.vy -= gravity * dt;
+  goalie.y += goalie.vy * dt;
+
+  if (goalie.y < 0.) {
+    goalie.y = 0;
+    goalie.vy = 0;
+  }
+}
+
+function goalieCollisionBounds() {
+  if (goalie.diving && abs(goalie.targetX) >= 1.0) {
+    const elapsed = millis() - goalie.diveStartTime;
+    if (elapsed >= 100) {
+      const dir = Math.sign(goalie.targetX) || 1;
+      return {
+        left: dir >= 0 ? goalie.x : goalie.x - goalie.height,
+        right: dir >= 0 ? goalie.x + goalie.height : goalie.x,
+        bottom: goalie.y,
+        top: goalie.y + goalie.width,
+      };
+    }
+  }
+  return {
+    left: goalie.x - goalie.width / 2,
+    right: goalie.x + goalie.width / 2,
+    bottom: goalie.y,
+    top: goalie.y + goalie.height,
+  };
+}
+
+function goalieSaveCheck(bx, by) {
+  const b = goalieCollisionBounds();
+  const r = ball.radius;
+  return bx > b.left - r && bx < b.right + r && by > b.bottom - r && by < b.top + r;
+}
+
+function drawGoalie() {
+  const diving = goalie.diving && millis() >= goalie.diveStartTime;
+  const img = diving ? goalieDiveImg : goalieStandImg;
+
+  const feet = project(goalie.x, goalie.y, goalie.z);
+  const top = project(goalie.x, goalie.y + goalie.height, goalie.z);
+
+  const sprH = feet.y - top.y;
+  const sprW = sprH * (goalie.width / goalie.height);
+
+  const cropRatio = goalie.width / goalie.height;
+  const sx = (img.width - img.width * cropRatio) / 2;
+  const sw = img.width * cropRatio;
+
+  push();
+  if (diving) {
+    const elapsed = millis() - goalie.diveStartTime;
+    const rotT = elapsed >= 0 ? min(elapsed / 100, 1) : 0;
+    translate(feet.x, feet.y);
+    if (abs(goalie.targetX) >= 1.0) {
+      translate(0, -lerp(0, sprW / 2, rotT));
+      rotate(Math.sign(goalie.targetX) * rotT * PI / 2);
+    }
+  } else {
+    translate(feet.x, feet.y);
+  }
+  imageMode(CORNER);
+  image(img, -sprW / 2, -sprH, sprW, sprH, sx, 0, sw, img.height);
+  pop();
+
+  // // collision rect
+  // const b = goalieCollisionBounds();
+  // const tl = project(b.left, b.top, goalie.z);
+  // const br = project(b.right, b.bottom, goalie.z);
+  // noFill();
+  // stroke(255, 0, 0, 150);
+  // strokeWeight(1);
+  // rect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
 }
