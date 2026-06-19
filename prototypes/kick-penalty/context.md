@@ -8,9 +8,21 @@ A single-kick penalty sandbox: the player aims and fires at the goal, the goalie
 The projectile the player kicks. When it enters the goal within the frame it's a score; when it hits the goalie it's a save.
 _Avoid_: Shot, projectile
 
+**Decision**:
+The type of behaviour the goalie follows on each kick: `read` (predict ball and dive to intercept), `freeze` (stay centred, raise arms, no movement), or `randcorner` (dive to a random post at a random height regardless of ball direction). The decision is chosen randomly from a weighted array (`GOALIE_DECISIONS`).
+
 **Dive**:
-The goalie's movement on kick: predicts the ball's position at the goal line from initial velocity and gravity, then moves to intercept. If the dive distance is ≥1m the sprite rotates to horizontal in 100ms and the collision zone swaps to 1.8m × 1.0m orientation. For shorter movements (<1m) the goalie stays upright with the standing zone.
+The goalie's movement on kick: for a `read` or `randcorner` decision, moves to `targetX` / `targetY` using lerp for horizontal and gravity for vertical. If the dive distance is ≥1m the sprite rotates to horizontal in 100ms and the collision zone swaps to 1.8m × 1.0m orientation. For shorter movements (<1m) the goalie stays upright with the standing zone.
 _Avoid_: Jump, lunge
+
+**Freeze**:
+A goalie decision outcome where the keeper stands centred, raises arms (dive sprite) after the reaction delay, but makes no lateral or vertical movement.
+
+**Random corner**:
+A goalie decision outcome where the keeper dives to a random post at a random height, ignoring the ball's actual direction. The collision zone and rotation behave identically to a `read` dive.
+
+**Read**:
+A goalie decision outcome where the keeper uses perfect physics to predict the ball's position at the goal line and dives to intercept it. This is the original always-save behaviour, now reduced by weighting in `GOALIE_DECISIONS`.
 
 **Goal**:
 The 3D target area the ball must enter to count as a score. Defined by width and height.
@@ -33,7 +45,7 @@ The position on the pitch where the ball starts before each kick.
 The goalie's effective coverage zone within the goal: full goal width (±3.66m) and the lower half of the goal height (up to 1.22m).
 
 **Reaction delay**:
-A fixed pause between the kick and the start of the goalie's dive movement.
+A random pause between the kick and the start of the goalie's action (movement or freeze pose). Sampled uniformly from `[0, MAX_REACTION_DELAY_MS]` independently each kick. Applies to all decision types.
 
 **Save**:
 When the goalie's body blocks the ball from entering the goal. The ball deflects away.

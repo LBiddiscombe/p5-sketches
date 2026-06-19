@@ -16,6 +16,9 @@ const goal = {
   height: 2.44,
 };
 
+const GOALIE_DECISIONS = ['read', 'freeze', 'randcorner'];
+const MAX_REACTION_DELAY_MS = 400;
+
 let goalieStandImg, goalieDiveImg;
 
 const goalie = {
@@ -28,6 +31,7 @@ const goalie = {
   width: 0.8,
   diving: false,
   diveStartTime: 0,
+  decision: null,
 };
 
 function preload() {
@@ -51,6 +55,7 @@ function resetBall() {
   goalie.x = 0;
   goalie.y = 0;
   goalie.vy = 0;
+  goalie.decision = null;
 }
 
 function draw() {
@@ -89,17 +94,31 @@ function kickBall() {
 
   ball.vz = 18;
 
-  // Predict ball position at the goal line so goalie always saves
   const t = goal.z / ball.vz;
   const predX = ball.vx * t;
   let predY = ball.y + ball.vy * t - 0.5 * gravity * t * t;
   if (predY < ball.radius) predY = ball.radius;
 
-  goalie.targetX = constrain(predX, -goal.width / 2, goal.width / 2);
-  goalie.targetY = constrain(predY, 0, goal.height);
-  goalie.vy = sqrt(2 * gravity * goalie.targetY);
+  const decision = random(GOALIE_DECISIONS);
+  const delay = MAX_REACTION_DELAY_MS; //random(0, MAX_REACTION_DELAY_MS);
+  goalie.decision = decision;
   goalie.diving = true;
-  goalie.diveStartTime = millis() + 100;
+  goalie.diveStartTime = millis() + delay;
+
+  if (decision === 'read') {
+    goalie.targetX = constrain(predX, -goal.width / 2, goal.width / 2);
+    goalie.targetY = constrain(predY, 0, goal.height);
+    goalie.vy = sqrt(2 * gravity * goalie.targetY);
+  } else if (decision === 'randcorner') {
+    const side = random() < 0.5 ? -1 : 1;
+    goalie.targetX = side * goal.width / 2;
+    goalie.targetY = random(0, goal.height);
+    goalie.vy = sqrt(2 * gravity * goalie.targetY);
+  } else { // freeze
+    goalie.targetX = 0;
+    goalie.targetY = 0;
+    goalie.vy = 0;
+  }
 }
 
 function updateBall() {
@@ -253,6 +272,8 @@ function updateGoalie() {
 
   const now = millis();
   if (now < goalie.diveStartTime) return;
+
+  if (goalie.decision === 'freeze') return;
 
   const dt = deltaTime / 1000;
   const elapsed = now - goalie.diveStartTime;
