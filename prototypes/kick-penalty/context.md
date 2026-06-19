@@ -32,7 +32,7 @@ _Avoid_: Net, frame
 The AI-controlled defender standing on the goal line. Switches from a standing pose to a diving pose on kick. The collision zone rotates 90° when prone: from a 1.0m × 1.8m upright rectangle to a 1.8m × 0.5m ground-level rectangle extending in the dive direction.
 
 **Kick**:
-The player's action — clicking or tapping the canvas — that launches the ball toward the goal.
+The player's action — tap near the ball to start a power charge, then release to launch the ball toward the goal. Direction is determined by where the finger/mouse is relative to the ball on release.
 _Avoid_: Shoot, strike
 
 **Miss**:
@@ -40,6 +40,9 @@ A kick that doesn't result in a score. The ball may go wide of the posts, over t
 
 **Penalty spot**:
 The position on the pitch where the ball starts before each kick.
+
+**Power**:
+The magnitude of the kick, determined by how long the player holds the tap. The power meter cycles from 0 to max over `POWER_CYCLE_MS`; releasing earlier gives less power, waiting for a full cycle gives max power.
 
 **Reach**:
 The goalie's effective coverage zone within the goal: full goal width (±3.66m) and the lower half of the goal height (up to 1.22m).

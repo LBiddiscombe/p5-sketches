@@ -3,6 +3,8 @@ let scored = false;
 let goalScoredTime = 0;
 let saved = false;
 let saveTime = 0;
+let charging = false;
+let chargeStartTime = 0;
 
 const gravity = 30;
 
@@ -22,6 +24,7 @@ const goal = {
 const GOALIE_DECISIONS = ['read', 'freeze', 'randcorner'];
 const MAX_REACTION_DELAY_MS = 400;
 const KICK_RADIUS = 50;
+const POWER_CYCLE_MS = 600;
 
 let goalieStandImg, goalieDiveImg;
 
@@ -74,34 +77,79 @@ function draw() {
   drawGoal();
   drawGoalie();
   drawBall();
+
+  if (charging) {
+    const elapsed = (millis() - chargeStartTime) % POWER_CYCLE_MS;
+    const power = elapsed / POWER_CYCLE_MS;
+
+    const ballScreen = project(ball.x, ball.y, ball.z);
+    const barX = ballScreen.x + 30;
+    const barY = ballScreen.y;
+    const barW = 10;
+    const barH = 40;
+
+    push();
+    noStroke();
+
+    fill(0, 120);
+    rect(barX, barY - barH, barW, barH);
+
+    fill(255, 220, 0);
+    const fillH = barH * power;
+    rect(barX, barY - fillH, barW, fillH);
+
+    noFill();
+    stroke(255, 180);
+    strokeWeight(1);
+    rect(barX, barY - barH, barW, barH);
+    pop();
+  }
 }
 
 function mousePressed() {
-  kickBall();
-}
+  if (charging) return false;
+  if (ball.z > 5) return false;
 
-function touchStarted() {
-  kickBall();
+  const ballScreen = project(ball.x, ball.y, ball.z);
+  const d = Math.hypot(mouseX - ballScreen.x, mouseY - ballScreen.y);
+  if (d > KICK_RADIUS) return false;
+
+  charging = true;
+  chargeStartTime = millis();
   return false;
 }
 
-function kickBall() {
-  // only kick when near start position
-  if (ball.z > 5) return;
+function mouseReleased() {
+  if (!charging) return false;
+  charging = false;
 
+  const elapsed = millis() - chargeStartTime;
+  if (elapsed < 100) return false;
+
+  const power = (elapsed % POWER_CYCLE_MS) / POWER_CYCLE_MS;
+  kickBall(power);
+  return false;
+}
+
+function touchStarted() {
+  return mousePressed();
+}
+
+function touchEnded() {
+  return mouseReleased();
+}
+
+function kickBall(power) {
   const ballScreen = project(ball.x, ball.y, ball.z);
   const dx = mouseX - ballScreen.x;
   const dy = mouseY - ballScreen.y;
-  const d = Math.hypot(dx, dy);
-
-  if (d > KICK_RADIUS) return;
+  const d = Math.hypot(dx, dy) || 1;
 
   ball.vx = -(dx / d) * map(d, 0, 50, 0, 10, true);
   ball.vy = (dy / d) * map(d, 0, 50, 0, 16, true);
+  ball.vz = (25 * power) + 5;
 
-  console.log("kick!", dx, dy, ball.vx, ball.vy);
-
-  ball.vz = 18;
+  console.log("kick!", power, dx, dy, ball.vx, ball.vy, ball.vz);
 
   const t = goal.z / ball.vz;
   const predX = ball.vx * t;
@@ -151,7 +199,7 @@ function updateBall() {
   }
 
   // check for goal scored
-  if (ball.z >= goal.z && ball.z <= goal.z + 0.5 && !scored) {
+  if (ball.z >= goal.z && ball.z <= goal.z + 0.5 && !scored && !saved) {
     const inFrame =
       ball.x > -goal.width / 2 &&
       ball.x < goal.width / 2 &&
@@ -312,16 +360,13 @@ function updateGoalie() {
 
 function goalieCollisionBounds() {
   if (goalie.diving && abs(goalie.targetX) >= 1.0) {
-    const elapsed = millis() - goalie.diveStartTime;
-    if (elapsed >= 100) {
-      const dir = Math.sign(goalie.targetX) || 1;
-      return {
-        left: dir >= 0 ? goalie.x : goalie.x - goalie.height,
-        right: dir >= 0 ? goalie.x + goalie.height : goalie.x,
-        bottom: goalie.y,
-        top: goalie.y + goalie.width,
-      };
-    }
+    const dir = Math.sign(goalie.targetX) || 1;
+    return {
+      left: dir >= 0 ? goalie.x : goalie.x - goalie.height,
+      right: dir >= 0 ? goalie.x + goalie.height : goalie.x,
+      bottom: goalie.y,
+      top: goalie.y + goalie.width,
+    };
   }
   return {
     left: goalie.x - goalie.width / 2,
