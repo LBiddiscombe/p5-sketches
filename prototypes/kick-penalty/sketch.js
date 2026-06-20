@@ -12,10 +12,14 @@ let outcomeTime = 0;
 let charging = false;
 let chargeStartTime = 0;
 
+const NET_COLS = 30;
+const NET_ROWS = 10;
+let netRipple = { active: false, impactX: 0, impactY: 0, startTime: 0 };
+
 const gravity = 30;
 
 const camera = {
-  focalLength: 600,
+  focalLength: 550,
   height: 2, // metres above ground
   horizonY: 100,
   z: -3,
@@ -64,6 +68,7 @@ function resetBall() {
   goalie.y = 0;
   goalie.vy = 0;
   goalie.decision = null;
+  netRipple.active = false;
 }
 
 function draw() {
@@ -193,6 +198,10 @@ function updateBall() {
       outcomeTime = millis();
     } else if (inFrame) {
       scored = true;
+      netRipple.active = true;
+      netRipple.impactX = ball.x;
+      netRipple.impactY = ball.y;
+      netRipple.startTime = millis();
       outcome = 'Goal!';
       outcomeTime = millis();
     }
@@ -381,32 +390,142 @@ function drawGoal() {
   const leftTop = project(-goal.width / 2, goal.height, goal.z);
   const rightTop = project(goal.width / 2, goal.height, goal.z);
 
+  // Posts and crossbar
   stroke(255);
   strokeWeight(4);
-
   line(leftBottom.x, leftBottom.y, leftTop.x, leftTop.y);
   line(rightBottom.x, rightBottom.y, rightTop.x, rightTop.y);
   line(leftTop.x, leftTop.y, rightTop.x, rightTop.y);
 
-  // simple net depth
-
+  // --- Net ---
   const netDepth = 2;
-  const leftBack = project(-goal.width / 2, 0, goal.z + netDepth);
-  const rightBack = project(goal.width / 2, 0, goal.z + netDepth);
-  const leftBackTop = project(-goal.width / 2, goal.height, goal.z + netDepth);
-  const rightBackTop = project(goal.width / 2, goal.height, goal.z + netDepth);
+  const cols = NET_COLS;
+  const rows = NET_ROWS;
+  const sideDivs = 4;
 
-  stroke(255, 100);
+  const rippling = netRipple.active;
+  const rippleTime = rippling ? (millis() - netRipple.startTime) / 1000 : 0;
+  const rippleAmp = rippling ? max(0, 10 * (1 - rippleTime / 2.5)) : 0;
+
+  let impactP = null;
+  if (rippling) {
+    impactP = project(netRipple.impactX, netRipple.impactY, goal.z + netDepth);
+  }
+
+  // Project a point with optional ripple displacement (for back face lookup)
+  function proj(wx, wy, wz) {
+    return project(wx, wy, wz);
+  }
+
+  // Build back-face grid with ripple displacement
+  const grid = [];
+  for (let r = 0; r <= rows; r++) {
+    grid[r] = [];
+    for (let c = 0; c <= cols; c++) {
+      const wx = map(c, 0, cols, -goal.width / 2, goal.width / 2);
+      const wy = map(r, 0, rows, 0, goal.height);
+      let p = proj(wx, wy, goal.z + netDepth);
+
+      if (rippling && rippleAmp > 0.5 && impactP) {
+        const dx = p.x - impactP.x;
+        const dy = p.y - impactP.y;
+        const d = sqrt(dx * dx + dy * dy);
+        if (d > 1) {
+          const wave = sin(d * 0.05 - rippleTime * 4) * rippleAmp * exp(-d * 0.02);
+          p.x += (dx / d) * wave;
+          p.y += (dy / d) * wave;
+        }
+      }
+
+      grid[r][c] = p;
+    }
+  }
+
+  stroke(255, 120);
   strokeWeight(1);
 
-  line(leftTop.x, leftTop.y, leftBackTop.x, leftBackTop.y);
-  line(rightTop.x, rightTop.y, rightBackTop.x, rightBackTop.y);
-  line(leftBackTop.x, leftBackTop.y, rightBackTop.x, rightBackTop.y);
-  line(leftBottom.x, leftBottom.y, leftBack.x, leftBack.y);
-  line(rightBottom.x, rightBottom.y, rightBack.x, rightBack.y);
-  line(leftBack.x, leftBack.y, leftBackTop.x, leftTop.y);
-  line(leftBack.x, leftBack.y, rightBack.x, rightBack.y);
-  line(rightBack.x, rightBack.y, rightBackTop.x, rightTop.y);
+  // --- Back face vertical ---
+  for (let c = 0; c <= cols; c++) {
+    for (let r = 0; r < rows; r++) {
+      line(grid[r][c].x, grid[r][c].y, grid[r + 1][c].x, grid[r + 1][c].y);
+    }
+  }
+
+  // --- Back face horizontal ---
+  for (let r = 0; r <= rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      line(grid[r][c].x, grid[r][c].y, grid[r][c + 1].x, grid[r][c + 1].y);
+    }
+  }
+
+  function drawSidePanel(getPoint, pRows) {
+    const panelGrid = [];
+    for (let i = 0; i <= pRows; i++) {
+      panelGrid[i] = [];
+      for (let d = 0; d <= sideDivs; d++) {
+        panelGrid[i][d] = getPoint(i, d);
+      }
+    }
+
+    for (let i = 0; i <= pRows; i++) {
+      for (let d = 0; d < sideDivs; d++) {
+        line(panelGrid[i][d].x, panelGrid[i][d].y,
+             panelGrid[i][d + 1].x, panelGrid[i][d + 1].y);
+      }
+    }
+
+    for (let d = 0; d <= sideDivs; d++) {
+      for (let i = 0; i < pRows; i++) {
+        line(panelGrid[i][d].x, panelGrid[i][d].y,
+             panelGrid[i + 1][d].x, panelGrid[i + 1][d].y);
+      }
+    }
+  }
+
+  // Left side panel
+  drawSidePanel((r, d) => {
+    const y = map(r, 0, rows, 0, goal.height);
+    if (d < sideDivs) {
+      return proj(-goal.width / 2, y, lerp(goal.z, goal.z + netDepth, d / sideDivs));
+    }
+    return grid[r][0];
+  }, rows);
+
+  // Right side panel
+  drawSidePanel((r, d) => {
+    const y = map(r, 0, rows, 0, goal.height);
+    if (d < sideDivs) {
+      return proj(goal.width / 2, y, lerp(goal.z, goal.z + netDepth, d / sideDivs));
+    }
+    return grid[r][cols];
+  }, rows);
+
+  // Top panel
+  drawSidePanel((c, d) => {
+    const x = map(c, 0, cols, -goal.width / 2, goal.width / 2);
+    if (d < sideDivs) {
+      return proj(x, goal.height, lerp(goal.z, goal.z + netDepth, d / sideDivs));
+    }
+    return grid[rows][c];
+  }, cols);
+
+  // Boundary and depth edges
+  const bl = grid[0][0];
+  const br = grid[0][cols];
+  const tl = grid[rows][0];
+  const tr = grid[rows][cols];
+
+  stroke(255, 180);
+  strokeWeight(1.5);
+
+  line(leftTop.x, leftTop.y, tl.x, tl.y);
+  line(rightTop.x, rightTop.y, tr.x, tr.y);
+  line(tl.x, tl.y, tr.x, tr.y);
+  line(leftBottom.x, leftBottom.y, bl.x, bl.y);
+  line(rightBottom.x, rightBottom.y, br.x, br.y);
+  line(bl.x, bl.y, tl.x, leftTop.y);
+  line(bl.x, bl.y, br.x, br.y);
+  line(br.x, br.y, tr.x, rightTop.y);
 }
 
 function drawBall() {
