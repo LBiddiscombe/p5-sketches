@@ -183,7 +183,7 @@ function updateBall() {
   }
 
   // check for goal scored
-  if (ball.z >= goal.z && ball.z <= goal.z + 0.5 && !scored && !saved) {
+  if (ball.z >= goal.z && ball.z <= goal.z + 1 && !scored && !saved) {
     const inFrame =
       ball.x > -goal.width / 2 &&
       ball.x < goal.width / 2 &&
@@ -431,7 +431,7 @@ function drawGoal() {
         const dy = p.y - impactP.y;
         const d = sqrt(dx * dx + dy * dy);
         if (d > 1) {
-          const wave = sin(d * 0.05 - rippleTime * 4) * rippleAmp * exp(-d * 0.02);
+          const wave = sin(d * 0.05 - rippleTime * 10) * rippleAmp * exp(-d * 0.06);
           p.x += (dx / d) * wave;
           p.y += (dy / d) * wave;
         }
